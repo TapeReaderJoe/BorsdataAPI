@@ -4,12 +4,18 @@ import time
 
 
 class BorsdataAPI:
-    def __init__(self, api_key):
+    def __init__(self, api_key, verbose=False):
         self.api_key = api_key
         self.params = {'authKey': self.api_key, 'maxYearCount': 20, 'maxR12QCount': 40, 'maxCount': 20}
         self.url_root = 'https://apiservice.borsdata.se/v1/'
         self._last_api_call = 0
         self._api_calls_per_second = 10
+        # used for tracing (api-calls in terminal)
+        self._verbose = verbose
+
+    def _debug_trace(self, string):
+        if self._verbose:
+            print(string)
 
     def _call_api(self, url):
         """
@@ -23,12 +29,23 @@ class BorsdataAPI:
         if time_delta < 1 / self._api_calls_per_second:
             time.sleep(1 / self._api_calls_per_second - time_delta)
         response = requests.get(self.url_root + url, self.params)
+        self._debug_trace("BorsdataAPI >> calling API: " + self.url_root + url)
         self._last_api_call = time.time()
         # status_code == 200 SUCCESS!
         if response.status_code != 200:
-            print(f"API-Error, status code: {response.status_code}")
+            print(f"BorsdataAPI >> API-Error, status code: {response.status_code}")
             return response
         return response.json()
+
+    def get_instrument_name(self, ins_id):
+        df = self.get_instruments()
+        try:
+            name = df[df['insId'] == ins_id]['name'].values[0]
+        except Exception as e:
+            print("BorsdataAPI >> get_instrument_name Error")
+            print(e)
+            name = "Name could not be found!"
+        return name
 
     def get_instruments(self):
         """
@@ -88,11 +105,15 @@ class BorsdataAPI:
         # converting the date to a datetime-object
         stock_prices.date = pd.to_datetime(stock_prices.date)
         stock_prices.fillna(0, inplace=True)
+        # setting the 'date'-column in dataframe (table/spreadsheet) as index
+        stock_prices.set_index('date', inplace=True)
+        # sorting by the new index (date)
+        stock_prices = stock_prices.sort_index()
         return stock_prices
 
     def get_instrument_stock_prices_last(self):
         """
-        get last days' stock prices for all istruments
+        get last days' stock prices for all instruments
         :return: pd.DataFrame()
         """
         url = f'/instruments/stockprices/last'
@@ -102,6 +123,18 @@ class BorsdataAPI:
                                      'o': 'open', 'v': 'volume'}, inplace=True)
         stock_prices.fillna(0, inplace=True)
         return stock_prices
+
+    def get_kpi_history(self, ins_id, kpi_id, rt, pt):
+        url = f"instruments/{ins_id}/kpis/{kpi_id}/{rt}/{pt}/history"
+        json_data = self._call_api(url)
+        # creating dataframes from json-data
+        kpi_history = pd.DataFrame.from_dict(json_data['values'], orient='columns')
+        # the structure of the data-columns received are; 'y' year, 'p' period, 'v' value (kpi).
+        # renaming the columns
+        kpi_history.rename(columns={"y": "year", "p": "period", "v": "kpi_value"}, inplace=True)
+        kpi_history.fillna(0, inplace=True)
+        # for more information about kpis see the documentation on swagger: https://apidoc.borsdata.se/swagger/index.html
+        return kpi_history
 
     def get_instrument_report_data(self, ins_id):
         """
@@ -124,7 +157,15 @@ class BorsdataAPI:
         reports_year.fillna(0, inplace=True)
         reports_quarter.fillna(0, inplace=True)
         reports_r12.fillna(0, inplace=True)
+        # sort data ascending
+        reports_year = reports_year.sort_values(['year', 'period'], ascending=True)
+        reports_quarter = reports_quarter.sort_values(['year', 'period'], ascending=True)
+        reports_r12 = reports_r12.sort_values(['year', 'period'], ascending=True)
         return reports_quarter, reports_year, reports_r12
+
+
+
+
 
 
 
