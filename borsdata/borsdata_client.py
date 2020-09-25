@@ -171,7 +171,7 @@ class BorsdataClient:
         """
         # creating api-object
         # fetching all instrument data
-        reports_quarter, reports_year, reports_r12 = self._borsdata_api.get_instrument_report_data(3)
+        reports_quarter, reports_year, reports_r12 = self._borsdata_api.get_instrument_reports(3)
         # getting the last reported eps-value
         last_eps = reports_r12['earnings_per_share'].values[-1]
         # getting the stock prices
