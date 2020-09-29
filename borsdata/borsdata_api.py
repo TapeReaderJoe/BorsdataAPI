@@ -43,7 +43,7 @@ class BorsdataAPI:
         return response.json()
 
     """
-    Instrument Data
+    Instrument Meta
     """
     def get_branches(self):
         """
@@ -259,7 +259,7 @@ class BorsdataAPI:
         stock_prices = stock_prices.sort_index()
         return stock_prices
 
-    def get_instrument_stock_prices_last(self):
+    def get_instruments_stock_prices_last(self):
         """
         get last days' stock prices for all instruments
         :return: pd.DataFrame()
@@ -274,8 +274,9 @@ class BorsdataAPI:
 
     def get_stock_prices_date(self, date):
         """
-        get last days' stock prices for all instruments
-        :return: pd.DataFrame()
+        get all instrument stock prices for passed date
+        :param date: date in string format, e.g. '2000-01-01'
+        :return:
         """
         url = f'/instruments/stockprices/date'
         self._params['date'] = date
@@ -320,7 +321,7 @@ class BorsdataAPI:
 
 if __name__ == "__main__":
     # Main, call functions here.
-    api = BorsdataAPI(constants._api_key)
+    api = BorsdataAPI(constants.API_KEY)
     #api.get_translation_meta_data()
     #api.get_instruments_updated()
     #api.get_kpi_summary(3, 'year')

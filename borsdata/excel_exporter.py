@@ -9,7 +9,6 @@ class ExcelExporter:
     """
     A small example class that uses the BorsdataAPI to fetch and concatenate
     instrument data into excel-files.
-
     """
     def __init__(self):
         self._api = BorsdataAPI(constants.API_KEY)

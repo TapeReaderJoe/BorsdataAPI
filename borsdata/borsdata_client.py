@@ -6,8 +6,9 @@ import pandas as pd
 import matplotlib.pylab as plt
 # datetime for date- and time-stuff
 import datetime as dt
-# api_data for system constants
+# user constants
 from borsdata import constants as constants
+import numpy as np
 import os
 
 # pandas options for string representation of data frames (print)
@@ -63,8 +64,6 @@ class BorsdataClient:
                 # appending current data to dataframe, i.e. adding a row to the table.
                 instrument_df = instrument_df.append({'name': name, 'ins_id': ins_id, 'ticker': ticker, 'isin': isin, 'instrument_type': instrument_type,
                                                                     'market': market, 'country': country, 'sector': sector, 'branch': branch}, ignore_index=True)
-            # showing the last elements (tail)
-            #print(instrument_df.tail())
             # create directory if it do not exist
             if not os.path.exists(constants.EXPORT_PATH):
                 os.makedirs(constants.EXPORT_PATH)
@@ -185,17 +184,60 @@ class BorsdataClient:
         # printing the name and calculated PE-ratio with the corresponding date. (array slicing, [:10])
         print(f"PE for {instrument_name} is {round(last_close/last_eps, 1)} with data from {str(last_date)[:10]}")
 
+    def breadth_large_cap_sweden(self):
+        """
+        plots the breadth (number of stocks above moving-average 40) for Large Cap Sweden compared
+        to Large Cap Sweden Index
+        """
+        # creating api-object
+        # using defined function above to retrieve data frame of all instruments
+        instruments = self.instruments_with_meta_data()
+        # filtering out the instruments with correct market and country
+        filtered_instruments = instruments.loc[(instruments['market'] == "Large Cap") & (instruments['country'] == "Sverige")]
+        # creating empty array (to hold data frames)
+        frames = []
+        # looping through all rows in filtered data frame
+        for index, instrument in filtered_instruments.iterrows():
+            # fetching the stock prices for the current instrument
+            instrument_stock_prices = self._borsdata_api.get_instrument_stock_prices(int(instrument['ins_id']))
+            # using numpy's where function to create a 1 if close > ma40, else a 0
+            instrument_stock_prices[f'above_ma40'] = np.where(instrument_stock_prices['close'] > instrument_stock_prices['close'].rolling(window=40).mean(), 1, 0)
+            instrument_stock_prices['name'] = instrument['name']
+            # check to see if response holds any data.
+            if len(instrument_stock_prices) > 0:
+                # appending data frame to array
+                frames.append(instrument_stock_prices.copy())
+        # creating concatenated data frame with concat
+        symbols_df = pd.concat(frames)
+        symbols_df = symbols_df.groupby('date').sum()
+        # fetching OMXSLCPI data from api
+        omx = self._borsdata_api.get_instrument_stock_prices(643)
+        # aligning data frames
+        omx = omx[omx.index > '2015-01-01']
+        symbols_df = symbols_df[symbols_df.index > '2015-01-01']
+        # creating subplot
+        fig, (ax1, ax2) = plt.subplots(2, sharex=True)
+        # plotting
+        ax1.plot(omx['close'], label="OMXSLCPI")
+        ax2.plot(symbols_df[f'above_ma40'], label="number of stocks above ma40")
+        # show legend
+        ax1.legend()
+        ax2.legend()
+        plt.show()
+
 
 if __name__ == "__main__":
     # Main, call functions here.
     # creating BorsdataClient-instance
     borsdata_client = BorsdataClient()
     # calling some methods
+    borsdata_client.breadth_large_cap_sweden()
     borsdata_client.get_latest_pe(87)
     borsdata_client.instruments_with_meta_data()
     borsdata_client.plot_stock_prices(3)  # ABB
     borsdata_client.history_kpi(2, 'Large Cap', 'Sverige')  # 2 == Price/Earnings (PE)
     borsdata_client.top_performers('Large Cap', 'Sverige', 10, 5)  # showing top10 performers based on 5 day return (1 week) for Large Cap Sverige.
+
 
 
 
