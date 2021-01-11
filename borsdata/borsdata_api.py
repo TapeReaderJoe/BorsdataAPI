@@ -119,7 +119,6 @@ class BorsdataAPI:
         url = f"instruments/{ins_id}/kpis/{kpi_id}/{report_type}/{price_type}/history"
         json_data = self._call_api(url)
         # creating dataframes from json-data
-        print(json_data)
         kpi_history = pd.DataFrame.from_dict(json_data['values'], orient='columns')
         # the structure of the data-columns received are; 'y' year, 'p' period, 'v' value (kpi).
         # renaming the columns
